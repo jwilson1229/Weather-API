@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
 
   try {
     const weatherData = await WeatherService.getWeatherForCity(city);
-    const savedEntry = await HistoryService.saveCityToHistory(city); // Ensure this function is implemented
+    const savedEntry = await HistoryService.getCities(); 
     return res.status(200).json({ weatherData, savedEntry });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to fetch weather data' });
@@ -24,7 +24,7 @@ router.post('/', async (req, res) => {
 // GET search history
 router.get('/history', async (req, res) => {
   try {
-    const history = await HistoryService.readSearchHistory(); // Ensure this function is implemented
+    const history = await HistoryService.getCities(); 
     return res.status(200).json(history);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to retrieve search history' });
@@ -36,16 +36,18 @@ router.delete('/history/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const history = await HistoryService.readSearchHistory(); // Ensure this function is implemented
+    const history = await HistoryService.getCities(); 
     const updatedHistory = history.filter(entry => entry.id !== id);
 
     if (history.length === updatedHistory.length) {
       return res.status(404).json({ error: 'City not found in history' });
     }
 
-    await HistoryService.writeSearchHistory(updatedHistory); // Ensure this function is implemented
+    await HistoryService.removeCity(id); 
     return res.status(200).json({ message: 'City removed from history' });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to delete city from history' });
   }
 });
+
+export default Router();

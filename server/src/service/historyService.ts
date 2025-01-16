@@ -59,12 +59,12 @@ class HistoryService {
 
     if (cities.length === updatedCities.length) {
       console.log(`City with id ${id} was not found.`);
-      return false; // No city was removed
+      return false;
     }
 
     await this.write(updatedCities);
     console.log(`City with id ${id} has been removed.`);
-    return true; // City was removed
+    return true; 
   }
 }
 
