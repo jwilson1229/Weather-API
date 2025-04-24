@@ -12,9 +12,10 @@
   
   ## Description 🧑‍💻
   I created this application to demonstrate expirience with using external APIs. 
-  -Screenshot:
-![WEATHER-API](./images/Screenshot%202025-04-24%20142759.png)
 
+  
+  -Screenshot:
+<img src="Screenshot 2025-04-24 142724.png" width= "200">
   ## Installation 🏋️
   The packages that must be installed for this application to workout: *DOTENV and express*
 
