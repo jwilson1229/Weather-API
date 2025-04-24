@@ -1,5 +1,11 @@
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 dotenv.config();
+
+console.log(`API_KEY from .env: ${process.env.API_KEY}`);  // Debugging the API Key
+
+// Other code...
+
 
 // Define an interface for the Coordinates object
 interface Coordinates {
@@ -7,80 +13,159 @@ interface Coordinates {
   longitude: number;
 }
 
-// Define a class for the Weather object
-class Weather {
-  constructor(
-    public temperature: number,
-    public description: string,
-    public humidity: number,
-    public windSpeed: number,
-    public cityName: string
-  ) {}
+// Define an interface for the Weather object
+interface Weather {
+  temperature: number;
+  condition: string;
+  location: string;
+  humidity: number;
+  windSpeed: number;
+  icon: string;
 }
 
-// Define the WeatherService class
+// Define an interface for the OpenWeatherMap API response
+interface OpenWeatherMapResponse {
+  name: string;
+  weather: { icon: string; description: string }[];
+  main: { temp: number; humidity: number };
+  wind: { speed: number };
+}
+
+// Define an interface for the forecast data
+interface ForecastItem {
+  date: string;
+  icon: string;
+  iconDescription: string;
+  tempF: number;
+  windSpeed: number;
+  humidity: number;
+}
+
+// Define the interface for the forecast response
+interface ForecastResponse {
+  list: Array<{
+    dt: number;
+    main: { temp: number; humidity: number };
+    weather: Array<{ icon: string; description: string }>;
+    wind: { speed: number };
+    dt_txt: string;
+  }>;
+}
+
+// Complete the WeatherService class
 class WeatherService {
-  private baseURL: string;
   private apiKey: string;
-  private cityName: string;
 
   constructor() {
-    this.baseURL = "https://api.openweathermap.org";
-    this.apiKey = process.env.OPENWEATHER_API_KEY || "";
-    this.cityName = ""; // Initialized when a city is queried
+    this.apiKey = process.env.API_KEY || '';
+    console.log(`Using API Key: ${this.apiKey}`); // Debugging information
   }
 
-  // Fetch location data from OpenWeatherMap
-  private async fetchLocationData(query: string): Promise<any> {
-    const url = `${this.baseURL}/geo/1.0/direct?q=${query}&limit=1&appid=${this.apiKey}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch location data");
-    return response.json();
-  }
-
-  // Extract latitude and longitude from location data
-  private destructureLocationData(locationData: any): Coordinates {
-    if (!locationData || locationData.length === 0) {
-      throw new Error("No location data found");
+  public async getWeather(cityName: string): Promise<Weather> {
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${this.apiKey}&units=imperial`
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error fetching weather data: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error('Failed to fetch weather data');
+      }
+      const weatherData = await response.json() as OpenWeatherMapResponse;
+      return {
+        temperature: weatherData.main.temp,
+        condition: weatherData.weather[0].description,
+        location: weatherData.name,
+        humidity: weatherData.main.humidity,
+        windSpeed: weatherData.wind.speed,
+        icon: weatherData.weather[0].icon,
+      };
+    } catch (error) {
+      console.error('Error fetching weather data:', error);
+      throw error;
     }
-    const { lat, lon } = locationData[0];
-    return { latitude: lat, longitude: lon };
   }
 
-  // Build the weather query URL
-  private buildWeatherQuery(coordinates: Coordinates): string {
-    return `${this.baseURL}/data/2.5/weather?lat=${coordinates.latitude}&lon=${coordinates.longitude}&units=metric&appid=${this.apiKey}`;
+  public async getWeatherByCoordinates(coordinates: Coordinates): Promise<Weather> {
+    try {
+      const { latitude, longitude } = coordinates;
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${this.apiKey}&units=imperial`
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error fetching weather data: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error('Failed to fetch weather data');
+      }
+      const weatherData = await response.json() as OpenWeatherMapResponse;
+      return {
+        temperature: weatherData.main.temp,
+        condition: weatherData.weather[0].description,
+        location: weatherData.name,
+        humidity: weatherData.main.humidity,
+        windSpeed: weatherData.wind.speed,
+        icon: weatherData.weather[0].icon,
+      };
+    } catch (error) {
+      console.error('Error fetching weather data:', error);
+      throw error;
+    }
   }
-
-  // Fetch and parse current weather data
-  private async fetchWeatherData(coordinates: Coordinates): Promise<any> {
-    const url = this.buildWeatherQuery(coordinates);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch weather data");
-    return response.json();
-  }
-
-  // Parse the current weather response into a Weather object
-  private parseCurrentWeather(response: any): Weather {
-    const { main, weather, wind, name } = response;
-    return new Weather(
-      main.temp,
-      weather[0].description,
-      main.humidity,
-      wind.speed,
-      name
-    );
-  }
-
-  // Get weather for a city
-  public async getWeatherForCity(city: string): Promise<Weather> {
-    this.cityName = city;
-
-    const locationData = await this.fetchLocationData(city);
-    const coordinates = this.destructureLocationData(locationData);
-
-    const weatherData = await this.fetchWeatherData(coordinates);
-    return this.parseCurrentWeather(weatherData);
+  
+  // Get 5-day forecast data
+  public async getForecast(cityName: string): Promise<ForecastItem[]> {
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?q=${cityName}&appid=${this.apiKey}&units=imperial`
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error fetching forecast data: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error('Failed to fetch forecast data');
+      }
+      const forecastData = await response.json() as ForecastResponse;
+      
+      // Get one forecast per day (every 24 hours) for 5 days
+      const dailyForecasts: ForecastItem[] = [];
+      const processedDates = new Set<string>();
+      
+      for (const item of forecastData.list) {
+        // Extract the date part only (YYYY-MM-DD)
+        const date = item.dt_txt.split(' ')[0];
+        
+        // Skip if we already have a forecast for this date
+        if (processedDates.has(date)) {
+          continue;
+        }
+        
+        // Add this date to our processed set
+        processedDates.add(date);
+        
+        // Format the date for display (MM/DD/YYYY)
+        const [year, month, day] = date.split('-');
+        const formattedDate = `${month}/${day}/${year}`;
+        
+        // Create a forecast item
+        dailyForecasts.push({
+          date: formattedDate,
+          icon: item.weather[0].icon,
+          iconDescription: item.weather[0].description,
+          tempF: item.main.temp,
+          windSpeed: item.wind.speed,
+          humidity: item.main.humidity
+        });
+        
+        // Stop once we have 5 days
+        if (dailyForecasts.length >= 5) {
+          break;
+        }
+      }
+      
+      return dailyForecasts;
+    } catch (error) {
+      console.error('Error fetching forecast data:', error);
+      throw error;
+    }
   }
 }
 
